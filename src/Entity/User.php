@@ -5,6 +5,7 @@ namespace App\Entity;
 use App\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 class User
@@ -17,14 +18,18 @@ class User
 
     #[ORM\Column(length: 255)]
     #[Groups(["getUsers"])]
+    #[Assert\NotBlank(message: "Username is missing")]
     private ?string $username = null;
 
     #[ORM\Column(length: 255)]
     #[Groups(["getUsers"])]
+    #[Assert\NotBlank(message: "email is missing")]
+    #[Assert\Email(message: "email must be valid")]
     private ?string $email = null;
 
     #[ORM\Column(length: 255)]
     #[Groups(["getUsers"])]
+    #[Assert\NotBlank(message: "password is missing")]
     private ?string $password = null;
 
     #[ORM\ManyToOne(inversedBy: 'users')]
