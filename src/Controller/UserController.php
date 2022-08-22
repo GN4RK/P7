@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\SerializerInterface ;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class UserController extends AbstractController
 {
@@ -55,10 +56,21 @@ class UserController extends AbstractController
     #[Route('api/users/{id}', name: 'add_user', methods: ['POST'])]
     public function addUser(
         Request $request, Customer $customer, SerializerInterface $serializer, 
-        EntityManagerInterface $em, UrlGeneratorInterface $urlGenerator): JsonResponse
+        EntityManagerInterface $em, UrlGeneratorInterface $urlGenerator,
+        ValidatorInterface $validator): JsonResponse
     {
-
         $user = $serializer->deserialize($request->getContent(), User::class, 'json');
+
+        $errors = $validator->validate($user);
+        if ($errors->count() > 0) {
+            return new JsonResponse(
+                $serializer->serialize($errors, 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
+
         $user->setCustomer($customer);
         $em->persist($user);
         $em->flush();
