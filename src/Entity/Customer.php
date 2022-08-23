@@ -6,9 +6,14 @@ use App\Repository\CustomerRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 
 #[ORM\Entity(repositoryClass: CustomerRepository::class)]
-class Customer
+#[UniqueEntity("username", message: "This username is already used.")]
+#[UniqueEntity("email", message: "This email is already used.")]
+class Customer implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -20,6 +25,12 @@ class Customer
 
     #[ORM\OneToMany(mappedBy: 'Customer', targetEntity: User::class, orphanRemoval: true)]
     private Collection $users;
+
+    #[ORM\Column(length: 255)]
+    private ?string $username = null;
+
+    #[ORM\Column(length: 255)]
+    private ?string $password = null;
 
     public function __construct()
     {
@@ -71,5 +82,41 @@ class Customer
         }
 
         return $this;
+    }
+
+    public function getUsername(): ?string
+    {
+        return $this->username;
+    }
+
+    public function setUsername(string $username): self
+    {
+        $this->username = $username;
+
+        return $this;
+    }
+
+    public function getPassword(): ?string
+    {
+        return $this->password;
+    }
+
+    public function setPassword(string $password): self
+    {
+        $this->password = $password;
+
+        return $this;
+    }
+
+    public function eraseCredentials() {}
+
+    public function getRoles(): array
+    {
+        return ['ROLE_USER'];
+    }
+
+    public function getUserIdentifier(): string
+    {
+        return (string) $this->username;
     }
 }

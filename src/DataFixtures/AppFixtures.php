@@ -8,9 +8,17 @@ use Doctrine\Persistence\ObjectManager;
 
 use App\Entity\Product;
 use App\Entity\User;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class AppFixtures extends Fixture
 {
+    private $userPasswordHasher;
+
+    public function __construct(UserPasswordHasherInterface $userPasswordHasher)
+    {
+        $this->userPasswordHasher = $userPasswordHasher;
+    }
+
     public function load(ObjectManager $manager): void
     {
         $faker = \Faker\Factory::create('FR-fr');
@@ -52,7 +60,10 @@ class AppFixtures extends Fixture
         $customers = [];
         for ($i = 0; $i < 3; $i++) {
             $customer = new Customer();
-            $customer->setName($faker->company());
+            $name = explode(" ", $faker->unique()->company())[0];
+            $customer->setName($name);
+            $customer->setUsername(strtolower($name));
+            $customer->setPassword($this->userPasswordHasher->hashPassword($customer, "password"));
             $customers[] = $customer;
             $manager->persist($customer);
         }
