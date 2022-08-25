@@ -19,6 +19,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Nelmio\ApiDocBundle\Annotation\Model;
 use Nelmio\ApiDocBundle\Annotation\Security;
 use OpenApi\Annotations as OA;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 
 class UserController extends AbstractController
 {
@@ -33,18 +35,33 @@ class UserController extends AbstractController
      *        @OA\Items(ref=@Model(type=User::class))
      *     )
      * )
+     * @OA\Parameter(
+     *     name="page",
+     *     in="query",
+     *     description="The page we want to get",
+     *     @OA\Schema(type="int")
+     * )
+     * @OA\Parameter(
+     *     name="limit",
+     *     in="query",
+     *     description="Number of item desired",
+     *     @OA\Schema(type="int")
+     * )
      * @OA\Response(
      *     response=401,
      *     description="Invalid credentials"
      * )
      * @OA\Tag(name="User")
      *
+     * @param UserRepository $userRepository
      * @param Customer $customer
      * @param SerializerInterface $serializer
+     * @param Request $request
      * @return JsonResponse
      */
     #[Route('api/users/{id}', name: 'user_list', methods: ['GET'])]
-    public function getUserList(Customer $customer, SerializerInterface $serializer): JsonResponse
+    public function getUserList(UserRepository $userRepository, Customer $customer, 
+        SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cachePool): JsonResponse
     {
         // Checking access (customer can only access his own user list)
         $loggedCustomer = $this->getUser();
@@ -56,9 +73,19 @@ class UserController extends AbstractController
             return new JsonResponse($response, Response::HTTP_UNAUTHORIZED, ['accept' => 'json'], true);
         }
 
+        $page = $request->get('page', 1);
+        $limit = $request->get('limit', 50);
+
+        $idCache = "getUserList-" . $page . "-" . $limit;
+        $jsonUserList = $cachePool->get($idCache, function (ItemInterface $item) use ($userRepository, $page, $limit, $serializer) {
+            $item->tag("usersCache");
+            $productList = $userRepository->findByCustomer($this->getUser()->getId(), $page, $limit);
+            return $serializer->serialize($productList, 'json');
+        });
+
         $context = SerializationContext::create()->setGroups(['getUsers']);
-        $jsonUsers = $serializer->serialize($customer->getUsers(), 'json', $context);
-        return new JsonResponse($jsonUsers, Response::HTTP_OK, ['accept' => 'json'], true);
+        $jsonUserList = $serializer->serialize($customer->getUsers(), 'json', $context);
+        return new JsonResponse($jsonUserList, Response::HTTP_OK, ['accept' => 'json'], true);
     }
 
     /**
