@@ -8,7 +8,7 @@ nelmio_api_doc:
             /api/login_check:
                 post:
                     tags:
-                        - Token
+                        - Login
                     operationId: postCredentialsItem
                     summary: Get JWT Token for authentication
                     requestBody:

@@ -16,9 +16,33 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use JMS\Serializer\SerializationContext;
 use JMS\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Nelmio\ApiDocBundle\Annotation\Model;
+use Nelmio\ApiDocBundle\Annotation\Security;
+use OpenApi\Annotations as OA;
 
 class UserController extends AbstractController
 {
+    /**
+     * This function return the user list for a specific customer.
+     *
+     * @OA\Response(
+     *     response=200,
+     *     description="Return the user list for a specific customer",
+     *     @OA\JsonContent(
+     *        type="array",
+     *        @OA\Items(ref=@Model(type=User::class))
+     *     )
+     * )
+     * @OA\Response(
+     *     response=401,
+     *     description="Invalid credentials"
+     * )
+     * @OA\Tag(name="User")
+     *
+     * @param Customer $customer
+     * @param SerializerInterface $serializer
+     * @return JsonResponse
+     */
     #[Route('api/users/{id}', name: 'user_list', methods: ['GET'])]
     public function getUserList(Customer $customer, SerializerInterface $serializer): JsonResponse
     {
@@ -37,6 +61,26 @@ class UserController extends AbstractController
         return new JsonResponse($jsonUsers, Response::HTTP_OK, ['accept' => 'json'], true);
     }
 
+    /**
+     * This function return the user list details.
+     *
+     * @OA\Response(
+     *     response=200,
+     *     description="Return the user details",
+     *     @OA\JsonContent(
+     *        type=User::class
+     *     )
+     * )
+     * @OA\Response(
+     *     response=401,
+     *     description="Invalid credentials"
+     * )
+     * @OA\Tag(name="User")
+     *
+     * @param Customer $customer
+     * @param SerializerInterface $serializer
+     * @return JsonResponse
+     */
     #[Route('api/users/{customerId}/{userId}', name: 'user_details', methods: ['GET'])]
     public function getUserDetails(
         int $customerId, int $userId, 
@@ -62,6 +106,23 @@ class UserController extends AbstractController
         return new JsonResponse($jsonUsers, Response::HTTP_OK, ['accept' => 'json'], true);
     }
 
+    /**
+     * This function delete a user.
+     *
+     * @OA\Response(
+     *     response=204,
+     *     description="Delete a user"
+     * )
+     * @OA\Response(
+     *     response=401,
+     *     description="Invalid credentials"
+     * )
+     * @OA\Tag(name="User")
+     *
+     * @param Customer $customer
+     * @param SerializerInterface $serializer
+     * @return JsonResponse
+     */
     #[Route('api/users/{customerId}/{userId}', name: 'delete_user', methods: ['DELETE'])]
     public function deleteUser(
         int $customerId, int $userId, EntityManagerInterface $em, CustomerRepository $customerRepository, 
@@ -84,6 +145,43 @@ class UserController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
+    /**
+     * This function add a user to a specific customer.
+     *
+     * @OA\Response(
+     *     response=201,
+     *     description="Return the user added to the customer",
+     *     @OA\JsonContent(
+     *        type="array",
+     *        @OA\Items(ref=@Model(type=User::class))
+     *     )
+     * )
+     * @OA\Response(
+     *     response=401,
+     *     description="Invalid credentials"
+     * )
+     * @OA\RequestBody(
+     *      required=true,
+     *      @OA\JsonContent(
+     *         example={
+     *             "username": "test.add",
+     *             "email":    "test.add@example.com",
+     *             "password": "password"
+     *         },
+     *         @OA\Schema (
+     *              type="object",
+     *              @OA\Property(property="username", required=true, description="Username", type="string"),
+     *              @OA\Property(property="email", required=true, description="Valid email adress", type="string"),
+     *              @OA\Property(property="password", required=true, description="Hashed password", type="string"),
+     *         )
+     *     )
+     * )
+     * @OA\Tag(name="User")
+     *
+     * @param Customer $customer
+     * @param SerializerInterface $serializer
+     * @return JsonResponse
+     */
     #[Route('api/users/{id}', name: 'add_user', methods: ['POST'])]
     public function addUser(
         Request $request, Customer $customer, SerializerInterface $serializer, 
