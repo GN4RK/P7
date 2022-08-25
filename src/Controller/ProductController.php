@@ -72,6 +72,11 @@ class ProductController extends AbstractController
     /**
      * This function return the product details.
      *
+     * @OA\Parameter(
+     *     name="id",
+     *     in="path",
+     *     description="Product id",
+     * )
      * @OA\Response(
      *     response=200,
      *     description="Return product details",
