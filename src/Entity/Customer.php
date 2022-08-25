@@ -62,6 +62,16 @@ class Customer implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->users;
     }
 
+    /**
+     * @return Collection<int, User>
+     */
+    public function getUsersWithPagination(int $page = 1, int $limit = null): Mixed
+    {
+
+        // return array_slice($this->users, ($page - 1) * $limit, $limit);
+        return $this->users->slice(($page - 1) * $limit, $limit);
+    }
+
     public function addUser(User $user): self
     {
         if (!$this->users->contains($user)) {
