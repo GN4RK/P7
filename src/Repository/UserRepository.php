@@ -39,6 +39,18 @@ class UserRepository extends ServiceEntityRepository
         }
     }
 
+    public function findByCustomer($customerId, $page, $limit): array
+   {
+       return $this->createQueryBuilder('u')
+            ->andWhere('u.customer_id = :val')
+            ->setParameter('val', $customerId)
+            ->setFirstResult(($page - 1) * $limit)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult()
+       ;
+   }
+
 //    /**
 //     * @return User[] Returns an array of User objects
 //     */
