@@ -19,6 +19,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Nelmio\ApiDocBundle\Annotation\Model;
 use Nelmio\ApiDocBundle\Annotation\Security;
 use OpenApi\Annotations as OA;
+use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 
@@ -34,6 +35,11 @@ class UserController extends AbstractController
      *        type="array",
      *        @OA\Items(ref=@Model(type=User::class))
      *     )
+     * )
+     * @OA\Parameter(
+     *     name="id",
+     *     in="path",
+     *     description="Customer id",
      * )
      * @OA\Parameter(
      *     name="page",
@@ -53,15 +59,15 @@ class UserController extends AbstractController
      * )
      * @OA\Tag(name="User")
      *
-     * @param UserRepository $userRepository
      * @param Customer $customer
      * @param SerializerInterface $serializer
      * @param Request $request
+     * @param TagAwareCacheInterface $cachePool
      * @return JsonResponse
      */
     #[Route('api/users/{id}', name: 'user_list', methods: ['GET'])]
-    public function getUserList(UserRepository $userRepository, Customer $customer, 
-        SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cachePool): JsonResponse
+    public function getUserList(Customer $customer, SerializerInterface $serializer, 
+        Request $request, TagAwareCacheInterface $cachePool): JsonResponse
     {
         // Checking access (customer can only access his own user list)
         $loggedCustomer = $this->getUser();
@@ -77,14 +83,13 @@ class UserController extends AbstractController
         $limit = $request->get('limit', 50);
 
         $idCache = "getUserList-" . $page . "-" . $limit;
-        $jsonUserList = $cachePool->get($idCache, function (ItemInterface $item) use ($userRepository, $page, $limit, $serializer) {
+        $jsonUserList = $cachePool->get($idCache, function (ItemInterface $item) use ($page, $limit, $serializer) {
             $item->tag("usersCache");
-            $productList = $userRepository->findByCustomer($this->getUser()->getId(), $page, $limit);
-            return $serializer->serialize($productList, 'json');
+            $userList = $this->getUser()->getUsersWithPagination($page, $limit);
+            $context = SerializationContext::create()->setGroups(['getUsers']);
+            return $serializer->serialize($userList, 'json', $context);
         });
 
-        $context = SerializationContext::create()->setGroups(['getUsers']);
-        $jsonUserList = $serializer->serialize($customer->getUsers(), 'json', $context);
         return new JsonResponse($jsonUserList, Response::HTTP_OK, ['accept' => 'json'], true);
     }
 
@@ -115,7 +120,7 @@ class UserController extends AbstractController
         UserRepository $userRepository, SerializerInterface $serializer
         ): JsonResponse
     {
-        // Checking access (customer can only access his own user list)
+        // Checking access (customer can only access his own users)
         $customer = $customerRepository->find($customerId);
         $loggedCustomer = $this->getUser();
         if ($loggedCustomer->getId() != $customer->getId()) {
@@ -152,8 +157,9 @@ class UserController extends AbstractController
      */
     #[Route('api/users/{customerId}/{userId}', name: 'delete_user', methods: ['DELETE'])]
     public function deleteUser(
-        int $customerId, int $userId, EntityManagerInterface $em, CustomerRepository $customerRepository, 
-        UserRepository $userRepository, SerializerInterface $serializer): JsonResponse
+        int $customerId, int $userId, EntityManagerInterface $em, 
+        CustomerRepository $customerRepository, UserRepository $userRepository, 
+        SerializerInterface $serializer, TagAwareCacheInterface $cachePool): JsonResponse
     {
         // Checking access (customer can only access his own user list)
         $customer = $customerRepository->find($customerId);
@@ -168,6 +174,9 @@ class UserController extends AbstractController
         $user = $userRepository->find($userId);
         $em->remove($user);
         $em->flush();
+
+        // invalid cache
+        $cachePool->invalidateTags(["usersCache"]);
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
@@ -186,6 +195,11 @@ class UserController extends AbstractController
      * @OA\Response(
      *     response=401,
      *     description="Invalid credentials"
+     * )
+     * @OA\Parameter(
+     *     name="id",
+     *     in="path",
+     *     description="Customer id",
      * )
      * @OA\RequestBody(
      *      required=true,
@@ -213,7 +227,7 @@ class UserController extends AbstractController
     public function addUser(
         Request $request, Customer $customer, SerializerInterface $serializer, 
         EntityManagerInterface $em, UrlGeneratorInterface $urlGenerator,
-        ValidatorInterface $validator): JsonResponse
+        ValidatorInterface $validator, TagAwareCacheInterface $cachePool): JsonResponse
     {
         // Checking access (customer can only access his own user list)
         $loggedCustomer = $this->getUser();
@@ -248,6 +262,87 @@ class UserController extends AbstractController
             'userId' => $user->getId()
         ], UrlGeneratorInterface::ABSOLUTE_URL);
 
+        // invalid cache
+        $cachePool->invalidateTags(["usersCache"]);
+
         return new JsonResponse($jsonUser, Response::HTTP_CREATED, ["Location" => $location], true);
+    }
+
+    /**
+     * This function update a user to a specific customer.
+     * @OA\RequestBody(
+     *      required=true,
+     *      @OA\JsonContent(
+     *         example={
+     *             "username": "test.add",
+     *             "email":    "test.add@example.com",
+     *             "password": "password"
+     *         },
+     *         @OA\Schema (
+     *              type="object",
+     *              @OA\Property(property="username", required=true, description="Username", type="string"),
+     *              @OA\Property(property="email", required=true, description="Valid email adress", type="string"),
+     *              @OA\Property(property="password", required=true, description="Hashed password", type="string"),
+     *         )
+     *     )
+     * )
+     * @OA\Tag(name="User")
+     *
+     */
+    #[Route('api/users/{customerId}/{userId}', name: 'update_user', methods: ['PUT'])]
+    public function updateUser(
+        int $customerId, int $userId, Request $request, EntityManagerInterface $em, 
+        CustomerRepository $customerRepository, UserRepository $userRepository, 
+        SerializerInterface $serializer, ValidatorInterface $validator, 
+        UrlGeneratorInterface $urlGenerator, TagAwareCacheInterface $cachePool): JsonResponse
+    {
+        // Checking access (customer can only access his own users)
+        $customer = $customerRepository->find($customerId);
+        $loggedCustomer = $this->getUser();
+        if ($loggedCustomer->getId() != $customer->getId()) {
+            $response = $serializer->serialize([
+                'status' => '401',
+                'message' => 'Invalid credentials.',
+            ], 'json');
+            return new JsonResponse($response, Response::HTTP_UNAUTHORIZED, ['accept' => 'json'], true);
+        }
+
+        $user = $userRepository->find($userId);
+
+        $updatedUser = $serializer->deserialize(
+            $request->getContent(), 
+            User::class, 
+            'json'
+        );
+
+        $user->setUsername($updatedUser->getUsername());
+        $user->setEmail($updatedUser->getEmail());
+        $user->setPassword($updatedUser->getPassword());
+
+        $errors = $validator->validate($user);
+        if ($errors->count() > 0) {
+            return new JsonResponse(
+                $serializer->serialize($errors, 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
+
+        $user->setCustomer($loggedCustomer);
+        $em->persist($user);
+        $em->flush();
+
+        $context = SerializationContext::create()->setGroups(['getUsers']);
+        $jsonUser = $serializer->serialize($user, 'json', $context);
+        $location = $urlGenerator->generate('user_details', [
+            'customerId' => $customer->getId(),
+            'userId' => $user->getId()
+        ], UrlGeneratorInterface::ABSOLUTE_URL);
+
+        // invalid cache
+        $cachePool->invalidateTags(["usersCache"]);
+
+        return new JsonResponse($jsonUser, Response::HTTP_OK, ["Location" => $location], true);
     }
 }
