@@ -19,7 +19,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Nelmio\ApiDocBundle\Annotation\Model;
 use Nelmio\ApiDocBundle\Annotation\Security;
 use OpenApi\Annotations as OA;
-use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 
@@ -72,11 +72,7 @@ class UserController extends AbstractController
         // Checking access (customer can only access his own user list)
         $loggedCustomer = $this->getUser();
         if ($loggedCustomer->getId() != $customer->getId()) {
-            $response = $serializer->serialize([
-                'status' => '401',
-                'message' => 'Invalid credentials.',
-            ], 'json');
-            return new JsonResponse($response, Response::HTTP_UNAUTHORIZED, ['accept' => 'json'], true);
+            throw new HttpException(Response::HTTP_UNAUTHORIZED, 'Invalid credentials.');
         }
 
         $page = $request->get('page', 1);
@@ -124,11 +120,7 @@ class UserController extends AbstractController
         $customer = $customerRepository->find($customerId);
         $loggedCustomer = $this->getUser();
         if ($loggedCustomer->getId() != $customer->getId()) {
-            $response = $serializer->serialize([
-                'status' => '401',
-                'message' => 'Invalid credentials.',
-            ], 'json');
-            return new JsonResponse($response, Response::HTTP_UNAUTHORIZED, ['accept' => 'json'], true);
+            throw new HttpException(Response::HTTP_UNAUTHORIZED, 'Invalid credentials.');
         }
 
         // TODO check if user is not empty
@@ -165,11 +157,7 @@ class UserController extends AbstractController
         $customer = $customerRepository->find($customerId);
         $loggedCustomer = $this->getUser();
         if ($loggedCustomer->getId() != $customer->getId()) {
-            $response = $serializer->serialize([
-                'status' => '401',
-                'message' => 'Invalid credentials.',
-            ], 'json');
-            return new JsonResponse($response, Response::HTTP_UNAUTHORIZED, ['accept' => 'json'], true);
+            throw new HttpException(Response::HTTP_UNAUTHORIZED, 'Invalid credentials.');
         }
         $user = $userRepository->find($userId);
         $em->remove($user);
@@ -232,11 +220,7 @@ class UserController extends AbstractController
         // Checking access (customer can only access his own user list)
         $loggedCustomer = $this->getUser();
         if ($loggedCustomer->getId() != $customer->getId()) {
-            $response = $serializer->serialize([
-                'status' => '401',
-                'message' => 'Invalid credentials.',
-            ], 'json');
-            return new JsonResponse($response, Response::HTTP_UNAUTHORIZED, ['accept' => 'json'], true);
+            throw new HttpException(Response::HTTP_UNAUTHORIZED, 'Invalid credentials.');
         }
 
         $user = $serializer->deserialize($request->getContent(), User::class, 'json');
@@ -300,11 +284,7 @@ class UserController extends AbstractController
         $customer = $customerRepository->find($customerId);
         $loggedCustomer = $this->getUser();
         if ($loggedCustomer->getId() != $customer->getId()) {
-            $response = $serializer->serialize([
-                'status' => '401',
-                'message' => 'Invalid credentials.',
-            ], 'json');
-            return new JsonResponse($response, Response::HTTP_UNAUTHORIZED, ['accept' => 'json'], true);
+            throw new HttpException(Response::HTTP_UNAUTHORIZED, 'Invalid credentials.');
         }
 
         $user = $userRepository->find($userId);
