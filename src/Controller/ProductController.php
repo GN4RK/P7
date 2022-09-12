@@ -88,6 +88,10 @@ class ProductController extends AbstractController
      *     response=401,
      *     description="JWT Token not found"
      * )
+     * @OA\Response(
+     *     response=404,
+     *     description="Error: Not Found"
+     * )
      * @OA\Tag(name="Product")
      *
      * @param Product $product
