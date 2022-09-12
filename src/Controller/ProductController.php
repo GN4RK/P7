@@ -81,12 +81,17 @@ class ProductController extends AbstractController
      *     response=200,
      *     description="Return product details",
      *     @OA\JsonContent(
-     *        type=Product::class
+     *        type="array",
+     *        @OA\Items(ref=@Model(type=Product::class))
      *     )
      * )
      * @OA\Response(
      *     response=401,
      *     description="JWT Token not found"
+     * )
+     * @OA\Response(
+     *     response=404,
+     *     description="Error: Not Found"
      * )
      * @OA\Tag(name="Product")
      *

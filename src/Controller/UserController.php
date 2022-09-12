@@ -96,12 +96,17 @@ class UserController extends AbstractController
      *     response=200,
      *     description="Return the user details",
      *     @OA\JsonContent(
-     *        type=User::class
+     *        type="array",
+     *        @OA\Items(ref=@Model(type=User::class))
      *     )
      * )
      * @OA\Response(
      *     response=401,
      *     description="Invalid credentials"
+     * )
+     * @OA\Response(
+     *     response=404,
+     *     description="User not found"
      * )
      * @OA\Tag(name="User")
      *
@@ -123,8 +128,11 @@ class UserController extends AbstractController
             throw new HttpException(Response::HTTP_UNAUTHORIZED, 'Invalid credentials.');
         }
 
-        // TODO check if user is not empty
+        // check if user is not empty
         $user = $userRepository->find($userId);
+        if (empty($user)) {
+            throw new HttpException(Response::HTTP_NOT_FOUND, 'User not found.');
+        }
         $context = SerializationContext::create()->setGroups(['getUsers']);
         $jsonUsers = $serializer->serialize($user, 'json', $context);
         return new JsonResponse($jsonUsers, Response::HTTP_OK, ['accept' => 'json'], true);
@@ -179,6 +187,10 @@ class UserController extends AbstractController
      *        type="array",
      *        @OA\Items(ref=@Model(type=User::class))
      *     )
+     * )
+     * @OA\Response(
+     *     response=400,
+     *     description="Bad Request"
      * )
      * @OA\Response(
      *     response=401,
@@ -270,6 +282,18 @@ class UserController extends AbstractController
      *         )
      *     )
      * )
+     * @OA\Response(
+     *     response=400,
+     *     description="Bad Request"
+     * )
+     * @OA\Response(
+     *     response=401,
+     *     description="Invalid credentials"
+     * )
+     * @OA\Response(
+     *     response=404,
+     *     description="User not found"
+     * )
      * @OA\Tag(name="User")
      *
      */
@@ -288,6 +312,9 @@ class UserController extends AbstractController
         }
 
         $user = $userRepository->find($userId);
+        if (empty($user)) {
+            throw new HttpException(Response::HTTP_NOT_FOUND, 'User not found.');
+        }
 
         $updatedUser = $serializer->deserialize(
             $request->getContent(), 
